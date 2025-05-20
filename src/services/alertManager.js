@@ -1,4 +1,7 @@
 import { toast } from 'react-toastify';
+import { database } from './firebaseConfig';
+import { ref, set, get } from 'firebase/database';
+import ApiStatusMonitor from './components/ApiStatusMonitor';
 
 class AlertManager {
   constructor() {
@@ -19,6 +22,32 @@ class AlertManager {
 
     // Learning rate
     this.alpha = 0.1;
+
+    // Load state from Firebase
+    this.loadState();
+  }
+
+  // Load state from Firebase
+  async loadState() {
+    try {
+      const stateRef = ref(database, 'rlState');
+      const snapshot = await get(stateRef);
+      if (snapshot.exists()) {
+        this.state = snapshot.val();
+      }
+    } catch (error) {
+      console.error('Error loading state from Firebase:', error);
+    }
+  }
+
+  // Save state to Firebase
+  async saveState() {
+    try {
+      const stateRef = ref(database, 'rlState');
+      await set(stateRef, this.state);
+    } catch (error) {
+      console.error('Error saving state to Firebase:', error);
+    }
   }
 
   // Simulate RL reward function
@@ -30,12 +59,15 @@ class AlertManager {
   }
 
   // Update RL policy
-  updatePolicy(reward) {
+  async updatePolicy(reward) {
     const oldSensitivity = this.state.sensitivityMultiplier;
     const newSensitivity = oldSensitivity + this.alpha * reward;
     
     // Clamp sensitivity between 0.5 and 2.0
     this.state.sensitivityMultiplier = Math.max(0.5, Math.min(2.0, newSensitivity));
+
+    // Save updated state to Firebase
+    await this.saveState();
   }
 
   // Get adjusted threshold based on RL policy
@@ -51,10 +83,22 @@ class AlertManager {
   }
 
   // Process sensor data and trigger alerts
-  processSensorData(data) {
-    Object.entries(data).forEach(([sensorId, sensorData]) => {
+  async processSensorData(data) {
+    Object.entries(data).forEach(async ([sensorId, sensorData]) => {
       const { value, type } = sensorData;
       
+      // Save sensor data to Firebase
+      try {
+        const sensorRef = ref(database, `sensorData/${sensorId}`);
+        await set(sensorRef, {
+          value,
+          type,
+          timestamp: Date.now()
+        });
+      } catch (error) {
+        console.error('Error saving sensor data to Firebase:', error);
+      }
+
       // Check for critical conditions
       if (this.checkThreshold(sensorId, value, 'critical')) {
         this.triggerAlert({
@@ -65,7 +109,7 @@ class AlertManager {
         
         // Update RL state
         this.state.successfulAlerts++;
-        this.updatePolicy(1);
+        await this.updatePolicy(1);
       }
       // Check for warnings
       else if (this.checkThreshold(sensorId, value, 'warning')) {
@@ -76,13 +120,13 @@ class AlertManager {
         });
         
         // Update RL state
-        this.updatePolicy(0.5);
+        await this.updatePolicy(0.5);
       }
     });
   }
 
-  // Trigger alert using toast notification
-  triggerAlert({ title, message, type }) {
+  // Trigger alert using toast notification and save to Firebase
+  async triggerAlert({ title, message, type }) {
     const toastOptions = {
       position: "top-right",
       autoClose: 5000,
@@ -92,6 +136,19 @@ class AlertManager {
       draggable: true,
       progress: undefined,
     };
+
+    // Save alert to Firebase
+    try {
+      const alertRef = ref(database, `alerts/${Date.now()}`);
+      await set(alertRef, {
+        title,
+        message,
+        type,
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      console.error('Error saving alert to Firebase:', error);
+    }
 
     switch (type) {
       case 'error':

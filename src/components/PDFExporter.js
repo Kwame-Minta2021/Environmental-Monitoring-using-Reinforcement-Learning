@@ -108,4 +108,5 @@ class PDFExporter {
   }
 }
 
-export default new PDFExporter(); 
+const pdfExporter = new PDFExporter();
+export default pdfExporter; 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BellIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 
 const NotificationMenu = () => {
   const [interval, setInterval] = useState('5min');

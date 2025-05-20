@@ -73,7 +73,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className={`min-h-screen ${darkMode ? 'dark' : ''}`}>
       {/* Navbar */}
       <nav className="bg-white dark:bg-gray-800 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
